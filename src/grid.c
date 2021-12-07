@@ -35,7 +35,6 @@ void print_grid(char *filename, grid_t *grid)
     fprintf(file, "%hd %hd\n", grid->m_rows, grid->m_cols);
 
     for (short i = 0; i < grid->m_rows; ++i) {
-
         for (short j = 0; j < grid->m_cols; ++j) {
             fprintf(file, "%hd", grid->m_grid[i][j]);
 

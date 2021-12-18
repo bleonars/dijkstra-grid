@@ -54,8 +54,8 @@ void print_grid(char *filename, grid_t *grid)
 
 void print_speeds(char *filename, grid_t *grid)
 {
-    FILE *file = fopen(filename, "w");
-    fprintf(file, "%hd\n", grid->m_cols);
+    FILE *file = fopen(filename, "wb");
+    fwrite(&grid->m_cols, sizeof(short), 1, file);
 
     short num_vertices = grid->m_cols * grid->m_rows;
 
@@ -68,23 +68,18 @@ void print_speeds(char *filename, grid_t *grid)
         short *last_col = (short *) malloc(sizeof(short) * grid->m_cols);
         memcpy(last_col, dist + num_vertices - grid->m_cols, grid->m_cols * sizeof(short));
 
-        short fastest_path = SHRT_MAX;
+        int fastest_path = INT_MAX;
         for (short j = 0; j < grid->m_cols; ++j) {
             if (last_col[j] < fastest_path)
-                fastest_path = last_col[j];
+                fastest_path = (int) last_col[j];
         }
-        fprintf(file, "%hd", fastest_path);
+        fwrite(&fastest_path, sizeof(int), 1, file);
 
         free(last_col);
         free(pred);
         free(dist);
-        
-        if (i != grid->m_cols - 1) {
-            fprintf(file, " ");
-        }
     }
 
-    fprintf(file, "\n");
     fclose(file);
 }
 

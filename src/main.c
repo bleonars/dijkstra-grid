@@ -11,8 +11,7 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
 
     print_grid(argv[2], grid);
-
-    print_speeds(argv[3], grid);
+    print_dijkstra(argv[3], argv[4], grid);
 
     free_grid(grid);
     return EXIT_SUCCESS;

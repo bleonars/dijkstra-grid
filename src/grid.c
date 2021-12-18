@@ -52,12 +52,64 @@ void print_grid(char *filename, grid_t *grid)
     fclose(file);
 }
 
-void print_speeds(char *filename, grid_t *grid)
+static void path_recv(FILE *file, short *pred, int idx, short cols)
+{
+    short x, y;
+
+    if (pred[idx] == -1) {
+        x = idx / cols;
+        y = idx % cols;
+        fwrite(&x, sizeof(short), 1, file); 
+        fwrite(&y, sizeof(short), 1, file);
+        return;
+    }
+
+    path_recv(file, pred, pred[idx], cols);
+
+    x = idx / cols;
+    y = idx % cols;
+
+    fwrite(&x, sizeof(short), 1, file); 
+    fwrite(&y, sizeof(short), 1, file);
+}
+
+static void count_path_recv(short *pred, int idx, int *path_count)
+{
+    if (pred[idx] == -1) {
+        (*path_count)++;
+        return;
+    }
+
+    count_path_recv(pred, pred[idx], path_count);
+
+    (*path_count)++;
+}
+
+static void print_paths(char *filename, int fastest_time, short fastest_idx, short *pred, short cols)
 {
     FILE *file = fopen(filename, "wb");
+    fwrite(&fastest_time, sizeof(int), 1, file);
+
+    int path_count = 0;
+    count_path_recv(pred, fastest_idx, &path_count);
+    fwrite(&path_count, sizeof(int), 1, file);
+
+    path_recv(file, pred, fastest_idx, cols);
+
+    fclose(file);
+}
+
+void print_dijkstra(char *filename_times, char *filename_paths, grid_t *grid)
+{
+    FILE *file = fopen(filename_times, "wb");
     fwrite(&grid->m_cols, sizeof(short), 1, file);
 
     short num_vertices = grid->m_cols * grid->m_rows;
+
+    short *overall_dist = NULL;
+    short *overall_pred = NULL;
+    int overall_time = INT_MAX;
+    short overall_idx = -1;
 
     for (short i = 0; i < grid->m_cols; ++i) {
         short *dist = NULL;
@@ -68,17 +120,42 @@ void print_speeds(char *filename, grid_t *grid)
         short *last_col = (short *) malloc(sizeof(short) * grid->m_cols);
         memcpy(last_col, dist + num_vertices - grid->m_cols, grid->m_cols * sizeof(short));
 
-        int fastest_path = INT_MAX;
+        int fastest_time = INT_MAX;
+        short fastest_idx = -1;
         for (short j = 0; j < grid->m_cols; ++j) {
-            if (last_col[j] < fastest_path)
-                fastest_path = (int) last_col[j];
+            if (last_col[j] < fastest_time) {
+                fastest_time = (int) last_col[j];
+                fastest_idx = num_vertices - grid->m_cols + j;
+            }
         }
-        fwrite(&fastest_path, sizeof(int), 1, file);
+        fwrite(&fastest_time, sizeof(int), 1, file);
+
+        if (fastest_time < overall_time) {
+            if (overall_dist) {
+                free(overall_dist);
+            } 
+
+            if (overall_pred) {
+                free(overall_pred);
+            }
+
+            overall_time = fastest_time;
+            overall_idx = fastest_idx;
+
+            overall_dist = dist;
+            overall_pred = pred;
+        }
+        else {
+            free(pred);
+            free(dist);
+        }
 
         free(last_col);
-        free(pred);
-        free(dist);
     }
+
+    print_paths(filename_paths, overall_time, overall_idx, overall_pred, grid->m_cols);
+    free(overall_dist);
+    free(overall_pred);
 
     fclose(file);
 }

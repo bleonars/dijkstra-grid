@@ -52,11 +52,6 @@ void print_grid(char *filename, grid_t *grid)
     fclose(file);
 }
 
-static int compare(const void *a, const void *b)
-{
-   return (*(short *) a - *(short *) b);
-}
-
 void print_speeds(char *filename, grid_t *grid)
 {
     FILE *file = fopen(filename, "w");
@@ -73,8 +68,12 @@ void print_speeds(char *filename, grid_t *grid)
         short *last_col = (short *) malloc(sizeof(short) * grid->m_cols);
         memcpy(last_col, dist + num_vertices - grid->m_cols, grid->m_cols * sizeof(short));
 
-        qsort(last_col, grid->m_cols, sizeof(short), compare);
-        fprintf(file, "%hd", last_col[0]);
+        short fastest_path = SHRT_MAX;
+        for (short j = 0; j < grid->m_cols; ++j) {
+            if (last_col[j] < fastest_path)
+                fastest_path = last_col[j];
+        }
+        fprintf(file, "%hd", fastest_path);
 
         free(last_col);
         free(pred);
@@ -107,21 +106,15 @@ void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
     short *pred = (short *) malloc(sizeof(short) * num_vertices);
 
     for (short i = 0; i < num_vertices; ++i) {
-        if (i == start_idx) {
-            heap->m_vertices[start_idx] = vertex_alloc(start_idx, dist[start_idx]);
-            heap->m_indices[start_idx] = start_idx;
-            dist[start_idx] = grid->m_grid[start_idx / grid->m_cols][start_idx % grid->m_cols];
-            pred[start_idx] = -1;
-            minheap_update(heap, start_idx, dist[start_idx]);
-        }
-        else {
-            dist[i] = SHRT_MAX; pred[i] = -1;
-            heap->m_vertices[i] = vertex_alloc(i, dist[i]);
-            heap->m_indices[i] = i;
-        }
+        dist[i] = SHRT_MAX; pred[i] = -1;
+        heap->m_vertices[i] = vertex_alloc(i, dist[i]);
+        heap->m_indices[i] = i;
     }
 
     heap->m_heap_size = num_vertices;
+
+    dist[start_idx] = grid->m_grid[start_idx / grid->m_cols][start_idx % grid->m_cols];
+    minheap_update(heap, start_idx, dist[start_idx]);
 
     while (!minheap_empty(heap)) {
         vertex_t *u = minheap_extract_min(heap);

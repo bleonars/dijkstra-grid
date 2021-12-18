@@ -74,8 +74,8 @@ void print_speeds(char *filename, grid_t *grid)
         memcpy(bottom, dist + num_vertices - 1 - grid->m_cols, grid->m_cols * sizeof(short));
 
         qsort(bottom, grid->m_cols, sizeof(short), compare);
-
         fprintf(file, "%hd", bottom[0]);
+
         if (i != grid->m_cols - 1) {
             fprintf(file, " ");
         }
@@ -107,10 +107,12 @@ void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
         heap->m_indices[i] = i;
     }
 
-    heap->m_heap_size = num_vertices;
-
+    heap->m_vertices[start_idx] = vertex_alloc(start_idx, dist[start_idx]);
+    heap->m_indices[start_idx] = start_idx;
     dist[start_idx] = grid->m_grid[start_idx / grid->m_cols][start_idx % grid->m_cols];
     minheap_update(heap, start_idx, dist[start_idx]);
+
+    heap->m_heap_size = num_vertices;
 
     while (!minheap_empty(heap)) {
         vertex_t *u = minheap_extract_min(heap);
@@ -122,19 +124,23 @@ void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
         short adj_it = 0;
 
         if (u_x != 0) {
-            adj_indices[adj_it++] = (grid->m_cols * (u_x - 1)) + u_y;
+            adj_indices[adj_it] = (grid->m_cols * (u_x - 1)) + u_y;
+            adj_it++;
         }
 
         if (u_x != grid->m_rows - 1) {
-            adj_indices[adj_it++] = (grid->m_cols * (u_x + 1)) + u_y;
+            adj_indices[adj_it] = (grid->m_cols * (u_x + 1)) + u_y;
+            adj_it++;
         }
 
         if (u_y != 0) {
-            adj_indices[adj_it++] = (grid->m_cols * u_x) + u_y - 1;
+            adj_indices[adj_it] = (grid->m_cols * u_x) + u_y - 1;
+            adj_it++;
         }
 
         if (u_y != grid->m_cols - 1) {
-            adj_indices[adj_it++] = (grid->m_cols * u_x) + u_y + 1;
+            adj_indices[adj_it] = (grid->m_cols * u_x) + u_y + 1;
+            adj_it++;
         }
 
         for (short i = 0; i < 4; ++i)
@@ -142,10 +148,10 @@ void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
             if (adj_indices[i] != -1) {
                 short adj_idx = adj_indices[i];
 
-                if (minheap_contains(heap, adj_idx) && dist[u->m_idx] != SHRT_MAX 
-                        && dist[adj_idx] > dist[u->m_idx] + grid->m_grid[u_x][u_y]) {
-                    short adj_x = adj_idx / grid->m_cols;
-                    short adj_y = adj_idx % grid->m_cols;
+                short adj_x = adj_idx / grid->m_cols;
+                short adj_y = adj_idx % grid->m_cols;
+
+                if (minheap_contains(heap, adj_idx) && dist[u->m_idx] != SHRT_MAX && dist[adj_idx] > dist[u->m_idx] + grid->m_grid[adj_x][adj_y]) {
                     dist[adj_idx] = dist[u->m_idx] + grid->m_grid[adj_x][adj_y];
                     pred[adj_idx] = u->m_idx;
 

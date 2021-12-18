@@ -85,6 +85,9 @@ static void minheap_heapify(minheap_t *heap, short idx)
 
 vertex_t *minheap_extract_min(minheap_t *heap)
 {
+    if (minheap_empty(heap))
+        return NULL;
+
     vertex_t *root = heap->m_vertices[0];
     vertex_t *last = heap->m_vertices[heap->m_heap_size - 1];
 

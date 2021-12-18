@@ -52,9 +52,9 @@ void print_grid(char *filename, grid_t *grid)
     fclose(file);
 }
 
-int compare(const void *a, const void *b)
+static int compare(const void *a, const void *b)
 {
-   return ( *(short *) a - *(short *) b );
+   return (*(short *) a - *(short *) b);
 }
 
 void print_speeds(char *filename, grid_t *grid)
@@ -70,18 +70,23 @@ void print_speeds(char *filename, grid_t *grid)
 
         dijkstra(grid, i, &dist, &pred);
 
-        short *bottom = (short *) malloc(sizeof(short) * grid->m_cols);
-        memcpy(bottom, dist + num_vertices - 1 - grid->m_cols, grid->m_cols * sizeof(short));
+        short *last_col = (short *) malloc(sizeof(short) * grid->m_cols);
+        memcpy(last_col, dist + num_vertices - grid->m_cols, grid->m_cols * sizeof(short));
 
-        qsort(bottom, grid->m_cols, sizeof(short), compare);
-        fprintf(file, "%hd", bottom[0]);
+        qsort(last_col, grid->m_cols, sizeof(short), compare);
+        fprintf(file, "%hd", last_col[0]);
 
+        free(last_col);
+        free(pred);
+        free(dist);
+        
         if (i != grid->m_cols - 1) {
             fprintf(file, " ");
         }
     }
 
     fprintf(file, "\n");
+    fclose(file);
 }
 
 void free_grid(grid_t *grid)
@@ -102,15 +107,19 @@ void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
     short *pred = (short *) malloc(sizeof(short) * num_vertices);
 
     for (short i = 0; i < num_vertices; ++i) {
-        dist[i] = SHRT_MAX; pred[i] = -1;
-        heap->m_vertices[i] = vertex_alloc(i, dist[i]);
-        heap->m_indices[i] = i;
+        if (i == start_idx) {
+            heap->m_vertices[start_idx] = vertex_alloc(start_idx, dist[start_idx]);
+            heap->m_indices[start_idx] = start_idx;
+            dist[start_idx] = grid->m_grid[start_idx / grid->m_cols][start_idx % grid->m_cols];
+            pred[start_idx] = -1;
+            minheap_update(heap, start_idx, dist[start_idx]);
+        }
+        else {
+            dist[i] = SHRT_MAX; pred[i] = -1;
+            heap->m_vertices[i] = vertex_alloc(i, dist[i]);
+            heap->m_indices[i] = i;
+        }
     }
-
-    heap->m_vertices[start_idx] = vertex_alloc(start_idx, dist[start_idx]);
-    heap->m_indices[start_idx] = start_idx;
-    dist[start_idx] = grid->m_grid[start_idx / grid->m_cols][start_idx % grid->m_cols];
-    minheap_update(heap, start_idx, dist[start_idx]);
 
     heap->m_heap_size = num_vertices;
 
@@ -122,11 +131,6 @@ void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
 
         short adj_indices[4] = { -1, -1, -1, -1 };
         short adj_it = 0;
-
-        if (u_x != 0) {
-            adj_indices[adj_it] = (grid->m_cols * (u_x - 1)) + u_y;
-            adj_it++;
-        }
 
         if (u_x != grid->m_rows - 1) {
             adj_indices[adj_it] = (grid->m_cols * (u_x + 1)) + u_y;
@@ -140,6 +144,11 @@ void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
 
         if (u_y != grid->m_cols - 1) {
             adj_indices[adj_it] = (grid->m_cols * u_x) + u_y + 1;
+            adj_it++;
+        }
+
+        if (u_x != 0) {
+            adj_indices[adj_it] = (grid->m_cols * (u_x - 1)) + u_y;
             adj_it++;
         }
 
@@ -159,10 +168,12 @@ void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
                 }
             }
         }
+
+        free(u);
     }
 
     *dist_ret = dist;
     *pred_ret = pred;
 
-    /*minheap_free(heap);*/
+    minheap_free(heap);
 }

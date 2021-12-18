@@ -30,14 +30,14 @@ minheap_t *minheap_alloc(short capacity)
 
 void minheap_free(minheap_t *heap)
 {
-    for (short i = 0; i < heap->m_capacity; ++i) {
-        if (heap->m_vertices[i])
-            free(heap->m_vertices[i]);
-    }
+    if (heap->m_vertices)
+        free(heap->m_vertices);
 
-    free(heap->m_vertices);
-    free(heap->m_indices);
-    free(heap);
+    if (heap->m_indices)
+        free(heap->m_indices);
+
+    if (heap)
+        free(heap);
 }
 
 void minheap_update(minheap_t *heap, short grid_idx, short dist)

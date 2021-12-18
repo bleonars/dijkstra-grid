@@ -6,8 +6,6 @@
 int main(int argc, char **argv)
 {
     grid_t *grid = NULL;
-    short *dist = NULL;
-    short *pred = NULL;
 
     if (argc != 5 || !parse_grid_file(argv[1], &grid))
         return EXIT_FAILURE;

@@ -1,7 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <limits.h>
 
 #include "grid.h"
+#include "minheap.h"
 
 int parse_grid_file(char *filename, grid_t **grid)
 {
@@ -49,12 +52,111 @@ void print_grid(char *filename, grid_t *grid)
     fclose(file);
 }
 
+int compare(const void *a, const void *b)
+{
+   return ( *(short *) a - *(short *) b );
+}
+
+void print_speeds(char *filename, grid_t *grid)
+{
+    FILE *file = fopen(filename, "w");
+    fprintf(file, "%hd\n", grid->m_cols);
+
+    short num_vertices = grid->m_cols * grid->m_rows;
+
+    for (short i = 0; i < grid->m_cols; ++i) {
+        short *dist = NULL;
+        short *pred = NULL;
+
+        dijkstra(grid, i, &dist, &pred);
+
+        short *bottom = (short *) malloc(sizeof(short) * grid->m_cols);
+        memcpy(bottom, dist + num_vertices - 1 - grid->m_cols, grid->m_cols * sizeof(short));
+
+        qsort(bottom, grid->m_cols, sizeof(short), compare);
+
+        fprintf(file, "%hd", bottom[0]);
+        if (i != grid->m_cols - 1) {
+            fprintf(file, " ");
+        }
+    }
+
+    fprintf(file, "\n");
+}
+
 void free_grid(grid_t *grid)
 {
-    for (int i = 0; i < grid->m_rows; ++i) {
+    for (int i = 0; i < grid->m_rows; ++i)
         free(grid->m_grid[i]);
-    }
 
     free(grid->m_grid);
     free(grid);
+}
+
+void dijkstra(grid_t *grid, short start_idx, short **dist_ret, short **pred_ret)
+{
+    short num_vertices = grid->m_rows * grid->m_cols;
+    minheap_t *heap = minheap_alloc(num_vertices);
+
+    short *dist = (short *) malloc(sizeof(short) * num_vertices);
+    short *pred = (short *) malloc(sizeof(short) * num_vertices);
+
+    for (short i = 0; i < num_vertices; ++i) {
+        dist[i] = SHRT_MAX; pred[i] = -1;
+        heap->m_vertices[i] = vertex_alloc(i, dist[i]);
+        heap->m_indices[i] = i;
+    }
+
+    heap->m_heap_size = num_vertices;
+
+    dist[start_idx] = grid->m_grid[start_idx / grid->m_cols][start_idx % grid->m_cols];
+    minheap_update(heap, start_idx, dist[start_idx]);
+
+    while (!minheap_empty(heap)) {
+        vertex_t *u = minheap_extract_min(heap);
+
+        short u_x = u->m_idx / grid->m_cols;
+        short u_y = u->m_idx % grid->m_cols;
+
+        short adj_indices[4] = { -1, -1, -1, -1 };
+        short adj_it = 0;
+
+        if (u_x != 0) {
+            adj_indices[adj_it++] = (grid->m_cols * (u_x - 1)) + u_y;
+        }
+
+        if (u_x != grid->m_rows - 1) {
+            adj_indices[adj_it++] = (grid->m_cols * (u_x + 1)) + u_y;
+        }
+
+        if (u_y != 0) {
+            adj_indices[adj_it++] = (grid->m_cols * u_x) + u_y - 1;
+        }
+
+        if (u_y != grid->m_cols - 1) {
+            adj_indices[adj_it++] = (grid->m_cols * u_x) + u_y + 1;
+        }
+
+        for (short i = 0; i < 4; ++i)
+        {
+            if (adj_indices[i] != -1) {
+                short adj_idx = adj_indices[i];
+
+                if (minheap_contains(heap, adj_idx) && dist[u->m_idx] != SHRT_MAX 
+                        && dist[adj_idx] > dist[u->m_idx] + grid->m_grid[u_x][u_y]) {
+                    short adj_x = adj_idx / grid->m_cols;
+                    short adj_y = adj_idx % grid->m_cols;
+                    dist[adj_idx] = dist[u->m_idx] + grid->m_grid[adj_x][adj_y];
+                    pred[adj_idx] = u->m_idx;
+
+                    minheap_update(heap, adj_idx, dist[adj_idx]);
+                }
+            }
+        }
+    }
+
+    *dist_ret = dist;
+    *pred_ret = pred;
+
+    /*minheap_free(heap);*/
 }

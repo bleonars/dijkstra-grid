@@ -1,107 +1,109 @@
+#include <stdbool.h>
+#include <stdlib.h>
+
 #include "minheap.h"
 
-static short parent(short idx)
+vertex_t *vertex_alloc(short idx, short dist)
 {
-    return (idx - 1) / 2;
+    vertex_t *v = (vertex_t *) malloc(sizeof(vertex_t));
+    v->m_idx = idx;
+    v->m_dist = dist;
+
+    return v;
 }
 
-static short left(short idx)
-{
-    return (idx * 2) + 1;
-}
-
-static short right(short idx)
-{
-    return (idx * 2) + 2;
-}
-
-static void swap(short *x, short *y)
-{
-    int temp = *x;
-    *x = *y;
-    *y = temp;
-}
+static short parent(short i) { return (i - 1) / 2; }
+static short left(short i) { return (2 * i) + 1; }
+static short right(short i) { return (2 * i) + 2; }
+static void exchange(vertex_t **x, vertex_t **y) { vertex_t *t = *x; *x = *y; *y = t; }
 
 minheap_t *minheap_alloc(short capacity)
 {
     minheap_t *heap = (minheap_t *) malloc(sizeof(minheap_t));
-    heap->m_capacity = capacity;
+    heap->m_vertices = (vertex_t **) malloc(sizeof(vertex_t *) * capacity);
+    heap->m_indices = (short *) malloc(sizeof(short) * capacity);
     heap->m_heap_size = 0;
+    heap->m_capacity = capacity;
 
-    heap->m_arr = (short *) malloc(heap->m_capacity * sizeof(short));
     return heap;
 }
 
 void minheap_free(minheap_t *heap)
 {
-    free(heap->m_arr);
+    for (short i = 0; i < heap->m_capacity; ++i) {
+        if (heap->m_vertices[i])
+            free(heap->m_vertices[i]);
+    }
+
+    free(heap->m_vertices);
+    free(heap->m_indices);
     free(heap);
 }
 
-void minheap_heapify(minheap_t *heap, short idx)
+void minheap_update(minheap_t *heap, short grid_idx, short dist)
 {
-    int smallest = idx;
+    short heap_idx = heap->m_indices[grid_idx];
 
-    int l = left(idx);
-    if (l < heap->m_heap_size && heap->m_arr[l] < heap->m_arr[idx])
+    heap->m_vertices[heap_idx]->m_dist = dist;
+
+    while (heap_idx &&
+            heap->m_vertices[heap_idx]->m_dist < heap->m_vertices[parent(heap_idx)]->m_dist) {
+        heap->m_indices[heap->m_vertices[heap_idx]->m_idx] = parent(heap_idx);
+        heap->m_indices[heap->m_vertices[parent(heap_idx)]->m_idx] = heap_idx;
+
+        exchange(&heap->m_vertices[heap_idx], &heap->m_vertices[parent(heap_idx)]);
+        heap_idx = parent(heap_idx);
+    }
+}
+
+static void minheap_heapify(minheap_t *heap, short idx)
+{
+    short smallest = idx;
+    short l = left(idx);
+    short r = right(idx);
+
+    if (l < heap->m_heap_size && heap->m_vertices[l]->m_dist < 
+            heap->m_vertices[smallest]->m_dist)
         smallest = l;
 
-    int r = right(idx);
-    if (r < heap->m_heap_size && heap->m_arr[r] < heap->m_arr[smallest])
+    if (r < heap->m_heap_size && heap->m_vertices[r]->m_dist < 
+            heap->m_vertices[smallest]->m_dist)
         smallest = r;
 
     if (smallest != idx) {
-        swap(&(heap->m_arr[idx]), &(heap->m_arr[smallest]));
+        vertex_t *smallest_vtx = heap->m_vertices[smallest];
+        vertex_t *index_vtx = heap->m_vertices[idx];
+
+        heap->m_indices[smallest_vtx->m_idx] = idx;
+        heap->m_indices[index_vtx->m_idx] = smallest;
+
+        exchange(&heap->m_vertices[smallest], &heap->m_vertices[idx]);
+
         minheap_heapify(heap, smallest);
     }
 }
 
-short minheap_extract_min(minheap_t *heap)
+vertex_t *minheap_extract_min(minheap_t *heap)
 {
-    if (heap->m_heap_size <= 0)
-        return SHRT_MAX;
+    vertex_t *root = heap->m_vertices[0];
+    vertex_t *last = heap->m_vertices[heap->m_heap_size - 1];
 
-    if (heap->m_heap_size == 1) {
-        heap->m_heap_size--;
-        return heap->m_arr[0];
-    }
-  
-    int root = heap->m_arr[0];
-    heap->m_arr[0] = heap->m_arr[heap->m_heap_size - 1];
+    heap->m_vertices[0] = last;
+    heap->m_indices[root->m_idx] = heap->m_heap_size - 1;
+    heap->m_indices[last->m_idx] = 0;
+
     heap->m_heap_size--;
     minheap_heapify(heap, 0);
-  
+
     return root;
 }
 
-void minheap_update_key(minheap_t *heap, short idx, short val)
+bool minheap_empty(minheap_t *heap)
 {
-    heap->m_arr[idx] = val;
-
-    while (idx != 0 && heap->m_arr[parent(idx)] > heap->m_arr[idx])
-    {
-        swap(&(heap->m_arr[idx]), &(heap->m_arr[parent(idx)]));
-        idx = parent(idx);
-    }
+    return heap->m_heap_size == 0;
 }
 
-void minheap_delete_key(minheap_t *heap, short idx)
+bool minheap_contains(minheap_t *heap, short grid_idx)
 {
-    minheap_update_key(heap, idx, SHRT_MIN);
-    minheap_extract_min(heap);
-}
-
-void minheap_insert_key(minheap_t *heap, short val)
-{
-    if (heap->m_heap_size == heap->m_capacity)
-        return;
-
-    heap->m_heap_size++;
-    int idx = heap->m_heap_size - 1;
-    heap->m_arr[idx] = val;
-
-    while (idx != 0 && heap->m_arr[parent(idx)] > heap->m_arr[idx]) {
-        swap(&(heap->m_arr[idx]), &(heap->m_arr[parent(idx)]));
-        idx = parent(idx);
-    }
+    return heap->m_indices[grid_idx] < heap->m_heap_size;
 }

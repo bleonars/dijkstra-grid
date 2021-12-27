@@ -59,13 +59,13 @@ void minheap_update(minheap_t *heap, short grid_idx, short dist)
 static void minheap_heapify(minheap_t *heap, short idx)
 {
     short smallest = idx;
+    
     short l = left(idx);
-    short r = right(idx);
-
     if (l < heap->m_heap_size && heap->m_vertices[l]->m_dist < 
             heap->m_vertices[smallest]->m_dist)
         smallest = l;
 
+    short r = right(idx);
     if (r < heap->m_heap_size && heap->m_vertices[r]->m_dist < 
             heap->m_vertices[smallest]->m_dist)
         smallest = r;
@@ -85,9 +85,6 @@ static void minheap_heapify(minheap_t *heap, short idx)
 
 vertex_t *minheap_extract_min(minheap_t *heap)
 {
-    if (minheap_empty(heap))
-        return NULL;
-
     vertex_t *root = heap->m_vertices[0];
     vertex_t *last = heap->m_vertices[heap->m_heap_size - 1];
 
